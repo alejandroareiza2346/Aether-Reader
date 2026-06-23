@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as pdfjsLib from "pdfjs-dist";
 import type { PDFDocumentProxy, PDFPageProxy, RenderTask } from "pdfjs-dist";
@@ -23,10 +21,6 @@ interface PageRenderResult {
 }
 
 const AUTOSAVE_INTERVAL = 3000;
-
-function getDocumentSource(source: string | ArrayBuffer): string | ArrayBuffer {
-  return source;
-}
 
 async function renderPdfPage(options: {
   pdf: PDFDocumentProxy;
@@ -61,18 +55,16 @@ async function renderPdfPage(options: {
   return { pageNumber, canvas, container };
 }
 
-export function PDFReader({ book, source, onProgressSave, onClose }: PDFReaderProps): JSX.Element {
+export function PDFReader({ book, source, onProgressSave, onClose }: PDFReaderProps) {
   const readerState = useReaderStore();
-  const libraryState = useLibraryStore();
   const [pdf, setPdf] = useState<PDFDocumentProxy | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pageContainers, setPageContainers] = useState<HTMLDivElement[]>([]);
-  const [visiblePages, setVisiblePages] = useState<number[]>([1]);
   const [hoverHud, setHoverHud] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(readerState.sidebarOpen);
-  const containerRef = useRef<HTMLDivElement | null>(null);
   const viewportRef = useRef<HTMLDivElement | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const autosaveRef = useRef<number | null>(null);
   const renderTaskRef = useRef<RenderTask | null>(null);
   const mountedRef = useRef(true);
@@ -157,6 +149,7 @@ export function PDFReader({ book, source, onProgressSave, onClose }: PDFReaderPr
       return;
     }
 
+    const activePdf = pdf;
     const pagesToRender = pageRange;
     const containers = pageContainers;
 
@@ -178,7 +171,7 @@ export function PDFReader({ book, source, onProgressSave, onClose }: PDFReaderPr
         try {
           renderTaskRef.current?.cancel();
           await renderPdfPage({
-            pdf,
+            pdf: activePdf,
             pageNumber,
             container,
             scale: zoom,
@@ -247,6 +240,7 @@ export function PDFReader({ book, source, onProgressSave, onClose }: PDFReaderPr
       if (event.key === "Escape") {
         useReaderStore.getState().setFullscreenZen(false);
         setSidebarOpen(false);
+        onClose?.();
       }
 
       if (event.key.toLowerCase() === "f") {
@@ -261,7 +255,7 @@ export function PDFReader({ book, source, onProgressSave, onClose }: PDFReaderPr
     window.addEventListener("keydown", handleKeyDown);
 
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [readerState.isFullscreenZen]);
+  }, [onClose, readerState.isFullscreenZen]);
 
   function syncCurrentPage(nextPage: number): void {
     const normalizedPage = clamp(nextPage, 1, Math.max(totalPages, 1));
